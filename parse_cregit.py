@@ -187,6 +187,8 @@ if __name__ == "__main__":
             parse_to_file(filename)
         except Exception as e:
             failures.append((filename, e))
-    print(f"{len(failures)} files failled to parse", *failures, sep="\n")
-    with open("faillure_log.txt", "w") as f:
-        f.writelines(failure for failure in failures)
+            if len(files) == 1:
+                raise e
+    print(f"{len(failures)} files failed to parse")
+    with open("failure_log.txt", "w") as f:
+        f.writelines(str(file) + ";" + str(message) for file, message in failures)
