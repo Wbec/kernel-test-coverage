@@ -1,4 +1,6 @@
 *
 !*/
+Forms/
 !/.gitignore
+!/*.py
 !linux-5.10.10/*.ipynb
