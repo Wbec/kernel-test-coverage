@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import re
 import csv
 
@@ -170,5 +172,21 @@ def parse_to_file(filename):
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("file", type=str)
-    parse_to_file(Path(arg_parser.parse_args().file))
+    arg_parser.add_argument("files", type=str, nargs='*')
+    arg_parser.add_argument("--all", action="store_true")
+    args = arg_parser.parse_args()
+
+    failures = []
+    if args.all:
+        files = blame_files.rglob("*.c.blame")
+    else:
+        files = [Path(f) for f in args.files]
+
+    for filename in files:
+        try:
+            parse_to_file(filename)
+        except Exception as e:
+            failures.append((filename, e))
+    print(f"{len(failures)} files failled to parse", *failures, sep="\n")
+    with open("faillure_log.txt", "w") as f:
+        f.writelines(failure for failure in failures)
