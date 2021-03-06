@@ -41,3 +41,4 @@ if __name__ == "__main__":
     reset_table("cregit_calls", "calls", ("file", "caller", "callee"))
     reset_table("cregit_includes", "includes", ("file", "include"))
     reset_table("cregit_specifiers", "specifiers", ("file", "name", "specifier"))
+    reset_table("cregit_names", "names", ("file", "function_name", "token_name"))

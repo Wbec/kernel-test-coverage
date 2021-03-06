@@ -2,6 +2,7 @@
 
 import re
 import csv
+from contextlib import ExitStack, contextmanager
 
 from pathlib import Path
 import argparse
@@ -35,7 +36,7 @@ def parse_whole(filename):
         if start in ("begin_unit", "end_unit", ""):
             pass
         elif start.startswith("begin_"):
-            item = start[len("begin_"):]
+            item = start[len("begin_") :]
             if item == "function":
                 yield "function", *parse_function(lines_in_item(lines, item))
             elif item == "include":
@@ -48,8 +49,8 @@ def parse_whole(filename):
 def parse_function(lines):
     lines = iter(lines)
     function_name, specifiers = parse_function_decl(lines)
-    callees = parse_function_body(lines)
-    return function_name, specifiers, callees
+    callees, names = parse_function_body(lines)
+    return function_name, specifiers, callees, names
 
 
 def parse_function_decl(lines):
@@ -59,12 +60,11 @@ def parse_function_decl(lines):
         if start == "specifier":
             assert len(rest) == 1, rest
             specifiers += rest
-            # are there other specifiers than static
         elif start == "DECL":
             assert rest[0] == "function", (start, rest)
             function_name = rest[1].split()[0]
         elif start == "name":
-            pass  # we may be able to weed out the function name, and get the types if that is usefull
+            pass  # we may be able to weed out the function name, and get the types if that is useful
         elif start == "parameter_list" and rest == [")"]:
             break  # this marks the end of the function header
         else:
@@ -102,7 +102,7 @@ def parse_function_body(lines):
             prev_name = (
                 None  # assume that argument lists always follow function names directly
             )
-    return callees
+    return callees, names
 
 
 def parse_include(lines):
@@ -135,44 +135,53 @@ def lines_in_item(lines, item):
 
 
 def output_location(input_path):
-    output_path = blame_parsed / input_path.relative_to(blame_files)
+    output_path = blame_parsed / input_path.resolve().relative_to(blame_files)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     return output_path
+
+
+@contextmanager
+def cleanup(filepaths):
+    """Cleans up any files in `filepaths` if an exception occurs."""
+    try:
+        yield
+    except:
+        for filepath in filepaths:
+            filepath.unlink(missing_ok=True)
 
 
 def parse_to_file(filename):
     parsed = list(parse_whole(filename))
     output_path = output_location(filename)
-    with open(output_path.with_suffix(".all_items"), "w") as all_items, open(
-        output_path.with_suffix(".functions"), "w"
-    ) as functions, open(
-        output_path.with_suffix(".specifiers"), "w"
-    ) as specifiers, open(
-        output_path.with_suffix(".calls"), "w"
-    ) as calls, open(
-        output_path.with_suffix(".includes"), "w"
-    ) as includes:
-        all_items.writelines(str(x) + "\n" for x in parsed)  # not csv formatted
-        all_items, functions, specifiers, calls, includes = (
-            csv.writer(f) for f in (all_items, functions, specifiers, calls, includes)
-        )
-        for line in parsed:
-            if line[0] == "function":
-                function_name = line[1]
-                functions.writerow([function_name])
-                for specifier in line[2]:
-                    specifiers.writerow([function_name, specifier])
-                for callee in line[3]:
-                    calls.writerow([function_name, callee])
-            elif line[0] == "include":
-                includes.writerow([line[1]])
+
+    suffixes = ["all_items", "functions", "specifiers", "calls", "includes", "names"]
+    filepaths = [output_path.with_suffix("." + suffix) for suffix in suffixes]
+    with ExitStack() as stack:
+        stack.enter_context(cleanup(filepaths))
+        files = {
+            suffix: csv.writer(stack.enter_context(open(filepath, "w")))
+            for suffix, filepath in zip(suffixes, filepaths)
+        }
+        for item_type, *info in parsed:
+            if item_type == "function":
+                function_name, specifiers, callees, used_names = info
+                files["functions"].writerow([function_name])
+                for specifier in specifiers:
+                    files["specifiers"].writerow([function_name, specifier])
+                for callee in callees:
+                    files["calls"].writerow([function_name, callee])
+                for name in used_names:
+                    files["names"].writerow([function_name, name])
+            elif item_type == "include":
+                assert len(info) == 1
+                files["includes"].writerow(info)
             else:
-                assert line[1] == "skipped"
+                assert info[0] == "skipped"
 
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("files", type=str, nargs='*')
+    arg_parser.add_argument("files", type=str, nargs="*")
     arg_parser.add_argument("--all", action="store_true")
     args = arg_parser.parse_args()
 
@@ -187,8 +196,11 @@ if __name__ == "__main__":
             parse_to_file(filename)
         except Exception as e:
             failures.append((filename, e))
-            if len(files) == 1:
+            if not args.all and len(files) == 1:
                 raise e
-    print(f"{len(failures)} files failed to parse")
-    with open("failure_log.txt", "w") as f:
-        f.writelines(str(file) + ";" + str(message) for file, message in failures)
+    if failures:
+        print(f"{len(failures)} files failed to parse")
+        with open("failure_log.txt", "w") as f:
+            f.writelines(
+                str(file) + ";" + str(message) + "\n" for file, message in failures
+            )
