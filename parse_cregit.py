@@ -41,6 +41,8 @@ def parse_whole(filename):
                 yield "function", *parse_function(lines_in_item(lines, item))
             elif item == "include":
                 yield "include", *parse_include(lines_in_item(lines, item))
+            elif item == "define":
+                yield "define", *parse_define(lines_in_item(lines, item))
             else:
                 # function_decl will be skipped
                 yield skip(lines, item)
@@ -112,8 +114,15 @@ def parse_include(lines):
     assert next(lines) == ["directive", "include"], lines
     start, *rest = next(lines)
     assert start == "file" and len(rest) == 1, lines
-    return rest
+    return rest  # rest is the <included/file>
 
+
+def parse_define(lines):
+    assert lines, "empty define not handled"
+    decl, macro, name = lines[0]
+    assert [decl, macro] == ["DECL", "macro"], "define did not start with declaration"
+    # ignore the rest for now
+    return name,  # returns tuple to be consistent with include/function parsers
 
 def skip(lines, item):
     """Skips to the end of a begin/end pair"""
@@ -133,6 +142,7 @@ def lines_in_item(lines, item):
         start, *rest = contents = next(lines)
     return result
 
+# Output to csv
 
 def output_location(input_path):
     output_path = blame_parsed / input_path.resolve().relative_to(blame_files)
@@ -145,23 +155,28 @@ def cleanup(filepaths):
     """Cleans up any files in `filepaths` if an exception occurs."""
     try:
         yield
-    except:
+    except Exception as e:
         for filepath in filepaths:
             filepath.unlink(missing_ok=True)
-
+        raise e
 
 def parse_to_file(filename):
     parsed = list(parse_whole(filename))
     output_path = output_location(filename)
 
-    suffixes = ["all_items", "functions", "specifiers", "calls", "includes", "names"]
+    suffixes = ["functions", "specifiers", "calls", "includes", "names", "macros"]
     filepaths = [output_path.with_suffix("." + suffix) for suffix in suffixes]
+    all_items = output_path.with_suffix(".all_items")
+    # this way of splitting up the parsing and writing is a bit awkward,
+    # since it recreates the structure used in the parser. Passing the files to the parser parts might be cleaner.
     with ExitStack() as stack:
         stack.enter_context(cleanup(filepaths))
+        stack.enter_context(open(all_items, "w"))
         files = {
             suffix: csv.writer(stack.enter_context(open(filepath, "w")))
             for suffix, filepath in zip(suffixes, filepaths)
         }
+        files["all_items"].writelines(str(x) + "\n" for x in parsed)
         for item_type, *info in parsed:
             if item_type == "function":
                 function_name, specifiers, callees, used_names = info
@@ -175,9 +190,14 @@ def parse_to_file(filename):
             elif item_type == "include":
                 assert len(info) == 1
                 files["includes"].writerow(info)
+            elif item_type == "define":
+                assert len(info) == 1
+                files["macros"].writerow(info)
             else:
                 assert info[0] == "skipped"
 
+
+# call from command line
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
