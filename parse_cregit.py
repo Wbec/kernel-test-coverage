@@ -67,7 +67,7 @@ def parse_function_decl(lines):
             function_name = rest[1].split()[0]
         elif start == "name":
             pass  # we may be able to weed out the function name, and get the types if that is useful
-        elif start == "parameter_list" and rest == [")"]:
+        elif start == "parameter_list" and rest in [[")"], ["()"]]:
             break  # this marks the end of the function header
         else:
             pass  # TODO: check what other declaration parts end up here
@@ -119,10 +119,28 @@ def parse_include(lines):
 
 def parse_define(lines):
     assert lines, "empty define not handled"
-    decl, macro, name = lines[0]
-    assert [decl, macro] == ["DECL", "macro"], "define did not start with declaration"
-    # ignore the rest for now
-    return name,  # returns tuple to be consistent with include/function parsers
+    macro_name = first_line = None
+    for start, *rest in lines:
+        if start == "DECL":
+            assert first_line is None, "multiple declarations in one macro"
+            macro, first_line = rest
+            assert macro == "macro", "Non macro declaration found in a macro"
+        elif start == "name" and macro_name is None:
+            # extract the first name in the macro, it should be the name of the macro
+            assert len(rest) == 1
+            macro_name = rest[0]
+        else:
+            pass
+
+    assert macro_name is not None, "Failed to extract macro name"
+
+    # the input for some macros does not fit this constraint
+    # as they lack a DECL line in their cregit tokenization
+    
+    # assert first_line is not None, "No macro declaration found"
+    # assert first_line.startswith(macro_name)
+
+    return macro_name,  # returns tuple to be consistent with include/function parsers
 
 def skip(lines, item):
     """Skips to the end of a begin/end pair"""
@@ -135,11 +153,15 @@ def lines_in_item(lines, item):
     result = []
 
     start, *rest = contents = next(lines)
-    while start != f"end_{item}":
-        assert not start.startswith("end_"), "end of different item found"
-        assert not start.startswith("begin_"), "start of different item found"
-        result.append(contents)
-        start, *rest = contents = next(lines)
+    try:
+        while start != f"end_{item}":
+            assert not start.startswith("end_"), "end of different item found"
+            assert not start.startswith("begin_"), "start of different item found"
+            result.append(contents)
+            start, *rest = contents = next(lines)
+    except StopIteration as e:
+        print(result)
+        raise e
     return result
 
 # Output to csv
@@ -171,12 +193,12 @@ def parse_to_file(filename):
     # since it recreates the structure used in the parser. Passing the files to the parser parts might be cleaner.
     with ExitStack() as stack:
         stack.enter_context(cleanup(filepaths))
-        stack.enter_context(open(all_items, "w"))
+        all_items = stack.enter_context(open(all_items, "w"))
         files = {
             suffix: csv.writer(stack.enter_context(open(filepath, "w")))
             for suffix, filepath in zip(suffixes, filepaths)
         }
-        files["all_items"].writelines(str(x) + "\n" for x in parsed)
+        all_items.writelines(str(x) + "\n" for x in parsed)
         for item_type, *info in parsed:
             if item_type == "function":
                 function_name, specifiers, callees, used_names = info
