@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-
+import itertools
 import re
 import csv
 from contextlib import ExitStack, contextmanager
 
 from pathlib import Path
 import argparse
+
 from locations import blame_parsed, blame_files
 
 
@@ -136,11 +137,12 @@ def parse_define(lines):
 
     # the input for some macros does not fit this constraint
     # as they lack a DECL line in their cregit tokenization
-    
+
     # assert first_line is not None, "No macro declaration found"
     # assert first_line.startswith(macro_name)
 
-    return macro_name,  # returns tuple to be consistent with include/function parsers
+    return (macro_name,)  # returns tuple to be consistent with include/function parsers
+
 
 def skip(lines, item):
     """Skips to the end of a begin/end pair"""
@@ -164,7 +166,9 @@ def lines_in_item(lines, item):
         raise e
     return result
 
+
 # Output to csv
+
 
 def output_location(input_path):
     output_path = blame_parsed / input_path.resolve().relative_to(blame_files)
@@ -181,6 +185,7 @@ def cleanup(filepaths):
         for filepath in filepaths:
             filepath.unlink(missing_ok=True)
         raise e
+
 
 def parse_to_file(filename):
     parsed = list(parse_whole(filename))
@@ -219,7 +224,17 @@ def parse_to_file(filename):
                 assert info[0] == "skipped"
 
 
-# call from command line
+def main(files):
+    failures = []
+    for filename in files:
+        try:
+            parse_to_file(filename)
+        except Exception as e:
+            failures.append((filename, e))
+            if len(files) == 1:
+                raise e
+    return failures
+
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
@@ -227,19 +242,22 @@ if __name__ == "__main__":
     arg_parser.add_argument("--all", action="store_true")
     args = arg_parser.parse_args()
 
-    failures = []
     if args.all:
-        files = blame_files.rglob("*.c.blame")
+        files = blame_files
     else:
         files = [Path(f) for f in args.files]
+    files = list(
+        *(
+            itertools.chain(
+                f.rglob("*.c.blame")
+                if f.is_dir()  # expand out directories to their contents
+                else [f]  # wrap single file in a list for chaining
+                for f in files
+            )
+        )
+    )
 
-    for filename in files:
-        try:
-            parse_to_file(filename)
-        except Exception as e:
-            failures.append((filename, e))
-            if not args.all and len(files) == 1:
-                raise e
+    failures = main(files)
     if failures:
         print(f"{len(failures)} files failed to parse")
         with open("failure_log.txt", "w") as f:
