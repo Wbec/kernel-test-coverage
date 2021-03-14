@@ -1,10 +1,13 @@
+#!/usr/bin/env python
+
 import csv
 import sqlite3
 
 from locations import blame_parsed, OUTDIR
 
-# regenerate sql database
 
+connection = sqlite3.connect(OUTDIR / "function_survey.db")
+cursor = connection.cursor()
 
 def read_csv(filename):
     with open(filename) as f:
@@ -33,12 +36,14 @@ def reset_table(table_name, suffix, column_names):
     )
     connection.commit()
 
-
-if __name__ == "__main__":
-    connection = sqlite3.connect(OUTDIR / "function_survey.db")
-    cursor = connection.cursor()
+def reset_all():
     reset_table("cregit_functions", "functions", ("file", "name"))
     reset_table("cregit_calls", "calls", ("file", "caller", "callee"))
     reset_table("cregit_includes", "includes", ("file", "include"))
     reset_table("cregit_specifiers", "specifiers", ("file", "name", "specifier"))
-    reset_table("cregit_names", "names", ("file", "function_name", "token_name"))
+    reset_table("cregit_identifiers", "names", ("file", "function", "identifier"))
+    reset_table("cregit_macros", "macros", ("file", "name"))
+
+
+if __name__ == "__main__":
+    reset_all()
