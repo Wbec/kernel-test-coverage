@@ -1,11 +1,13 @@
 #!/usr/bin/env python
+import argparse
+import csv
+import io
 import itertools
 import re
-import csv
+import sys
+import traceback
 from contextlib import ExitStack, contextmanager
-
 from pathlib import Path
-import argparse
 
 from locations import blame_parsed, blame_files
 
@@ -191,37 +193,48 @@ def parse_to_file(filename):
     parsed = list(parse_whole(filename))
     output_path = output_location(filename)
 
-    suffixes = ["functions", "specifiers", "calls", "includes", "names", "macros"]
+    suffixes = ["all_items", "functions", "specifiers", "calls", "includes", "names", "macros"]
     filepaths = [output_path.with_suffix("." + suffix) for suffix in suffixes]
-    all_items = output_path.with_suffix(".all_items")
+    # buffers, writers, and files have parallel structures, but are just stored as separate dicts
+    buffers = {
+        suffix: io.StringIO()
+        for suffix in suffixes
+    }
+    writers = {
+        suffix: csv.writer(buffer)
+        for suffix, buffer in buffers.items()
+    }
     # this way of splitting up the parsing and writing is a bit awkward,
     # since it recreates the structure used in the parser. Passing the files to the parser parts might be cleaner.
+    buffers["all_items"].writelines(str(x) + "\n" for x in parsed)
+    for item_type, *info in parsed:
+        if item_type == "function":
+            function_name, specifiers, callees, used_names = info
+            writers["functions"].writerow([function_name])
+            for specifier in specifiers:
+                writers["specifiers"].writerow([function_name, specifier])
+            for callee in callees:
+                writers["calls"].writerow([function_name, callee])
+            for name in used_names:
+                writers["names"].writerow([function_name, name])
+        elif item_type == "include":
+            assert len(info) == 1
+            writers["includes"].writerow(info)
+        elif item_type == "define":
+            assert len(info) == 1
+            writers["macros"].writerow(info)
+        else:
+            assert info[0] == "skipped"
     with ExitStack() as stack:
-        stack.enter_context(cleanup(filepaths))
-        all_items = stack.enter_context(open(all_items, "w"))
         files = {
-            suffix: csv.writer(stack.enter_context(open(filepath, "w")))
-            for suffix, filepath in zip(suffixes, filepaths)
+            suffix: stack.enter_context(
+                open(output_path.with_suffix("." + suffix), "w")
+            )
+            for suffix in suffixes
         }
-        all_items.writelines(str(x) + "\n" for x in parsed)
-        for item_type, *info in parsed:
-            if item_type == "function":
-                function_name, specifiers, callees, used_names = info
-                files["functions"].writerow([function_name])
-                for specifier in specifiers:
-                    files["specifiers"].writerow([function_name, specifier])
-                for callee in callees:
-                    files["calls"].writerow([function_name, callee])
-                for name in used_names:
-                    files["names"].writerow([function_name, name])
-            elif item_type == "include":
-                assert len(info) == 1
-                files["includes"].writerow(info)
-            elif item_type == "define":
-                assert len(info) == 1
-                files["macros"].writerow(info)
-            else:
-                assert info[0] == "skipped"
+        for suffix in suffixes:
+            files[suffix].write(buffers[suffix].getvalue())
+
 
 
 def main(files):
@@ -231,8 +244,7 @@ def main(files):
             parse_to_file(filename)
         except Exception as e:
             failures.append((filename, e))
-            if len(files) == 1:
-                raise e
+            print(traceback.format_exc(), file=sys.stderr)
     return failures
 
 
