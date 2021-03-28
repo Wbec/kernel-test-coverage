@@ -38,11 +38,16 @@ def reset_table(table_name, suffix, column_names):
 
 def reset_all():
     reset_table("cregit_functions", "functions", ("file", "name"))
+    cursor.execute("CREATE INDEX idx_functions ON cregit_functions (file, name);")
     reset_table("cregit_calls", "calls", ("file", "caller", "callee"))
+    cursor.execute("CREATE INDEX idx_calls ON cregit_calls (file,caller,callee);)")
     reset_table("cregit_includes", "includes", ("file", "include"))
     reset_table("cregit_specifiers", "specifiers", ("file", "name", "specifier"))
     reset_table("cregit_identifiers", "names", ("file", "function", "identifier"))
+    cursor.execute("CREATE INDEX idx_identifiers ON cregit_identifiers (file,function,identifier);")
     reset_table("cregit_macros", "macros", ("file", "name"))
+
+
 
 
 if __name__ == "__main__":
