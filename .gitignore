@@ -1,6 +1,8 @@
 *
 !*/
 Forms/
+cregit/
+kernels/
 !/.gitignore
 !/*.py
 !failure_log.txt
