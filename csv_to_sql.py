@@ -40,7 +40,7 @@ def reset_all():
     reset_table("cregit_functions", "functions", ("file", "name"))
     cursor.execute("CREATE INDEX idx_functions ON cregit_functions (file, name);")
     reset_table("cregit_calls", "calls", ("file", "caller", "callee"))
-    cursor.execute("CREATE INDEX idx_calls ON cregit_calls (file,caller,callee);)")
+    cursor.execute("CREATE INDEX idx_calls ON cregit_calls (file,caller,callee);")
     reset_table("cregit_includes", "includes", ("file", "include"))
     reset_table("cregit_specifiers", "specifiers", ("file", "name", "specifier"))
     reset_table("cregit_identifiers", "names", ("file", "function", "identifier"))

@@ -70,8 +70,12 @@ def parse_function_decl(lines):
             function_name = rest[1].split()[0]
         elif start == "name":
             pass  # we may be able to weed out the function name, and get the types if that is useful
-        elif start == "parameter_list" and rest in [[")"], ["()"]]:
-            break  # this marks the end of the function header
+        elif start == "parameter_list":
+            if rest == ["("]:
+                skip_function_parameters(lines)
+            else:
+                assert rest == ["()"], f"unexpected paremeter list value {rest}"
+            break
         else:
             pass  # TODO: check what other declaration parts end up here
     # assert function_name is not None
@@ -81,6 +85,13 @@ def parse_function_decl(lines):
     # This might be correctable by using the name directly before the function parameters as the function name
     # I will be ignoring this edge case for now.
     return function_name, specifiers
+
+def skip_function_parameters(lines):
+    """Skips to the end of the function parameters."""
+    for start, *rest in lines:
+        if start == "parameter_list" and rest == [')']:
+            return  # this marks the end of the function header
+    assert False, "function parameters were not terminated."
 
 
 def parse_function_body(lines):
@@ -255,7 +266,7 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     if args.all:
-        files = blame_files
+        files = [blame_files]
     else:
         files = [Path(f) for f in args.files]
     files = list(
