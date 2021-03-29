@@ -9,6 +9,7 @@ from locations import blame_parsed, OUTDIR
 connection = sqlite3.connect(OUTDIR / "function_survey.db")
 cursor = connection.cursor()
 
+
 def read_csv(filename):
     with open(filename) as f:
         reader = csv.reader(f)
@@ -36,6 +37,7 @@ def reset_table(table_name, suffix, column_names):
     )
     connection.commit()
 
+
 def reset_all():
     reset_table("cregit_functions", "functions", ("file", "name"))
     cursor.execute("CREATE INDEX idx_functions ON cregit_functions (file, name);")
@@ -44,10 +46,10 @@ def reset_all():
     reset_table("cregit_includes", "includes", ("file", "include"))
     reset_table("cregit_specifiers", "specifiers", ("file", "name", "specifier"))
     reset_table("cregit_identifiers", "names", ("file", "function", "identifier"))
-    cursor.execute("CREATE INDEX idx_identifiers ON cregit_identifiers (file,function,identifier);")
+    cursor.execute(
+        "CREATE INDEX idx_identifiers ON cregit_identifiers (file,function,identifier);"
+    )
     reset_table("cregit_macros", "macros", ("file", "name"))
-
-
 
 
 if __name__ == "__main__":

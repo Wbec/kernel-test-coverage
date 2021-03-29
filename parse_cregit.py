@@ -86,10 +86,11 @@ def parse_function_decl(lines):
     # I will be ignoring this edge case for now.
     return function_name, specifiers
 
+
 def skip_function_parameters(lines):
     """Skips to the end of the function parameters."""
     for start, *rest in lines:
-        if start == "parameter_list" and rest == [')']:
+        if start == "parameter_list" and rest == [")"]:
             return  # this marks the end of the function header
     assert False, "function parameters were not terminated."
 
@@ -204,17 +205,19 @@ def parse_to_file(filename):
     parsed = list(parse_whole(filename))
     output_path = output_location(filename)
 
-    suffixes = ["all_items", "functions", "specifiers", "calls", "includes", "names", "macros"]
+    suffixes = [
+        "all_items",
+        "functions",
+        "specifiers",
+        "calls",
+        "includes",
+        "names",
+        "macros",
+    ]
     filepaths = [output_path.with_suffix("." + suffix) for suffix in suffixes]
     # buffers, writers, and files have parallel structures, but are just stored as separate dicts
-    buffers = {
-        suffix: io.StringIO()
-        for suffix in suffixes
-    }
-    writers = {
-        suffix: csv.writer(buffer)
-        for suffix, buffer in buffers.items()
-    }
+    buffers = {suffix: io.StringIO() for suffix in suffixes}
+    writers = {suffix: csv.writer(buffer) for suffix, buffer in buffers.items()}
     # this way of splitting up the parsing and writing is a bit awkward,
     # since it recreates the structure used in the parser. Passing the files to the parser parts might be cleaner.
     buffers["all_items"].writelines(str(x) + "\n" for x in parsed)
@@ -245,7 +248,6 @@ def parse_to_file(filename):
         }
         for suffix in suffixes:
             files[suffix].write(buffers[suffix].getvalue())
-
 
 
 def main(files):
