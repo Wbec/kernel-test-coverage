@@ -8,3 +8,5 @@ kernels/
 !failure_log.txt
 !linux-5.10.10/*.ipynb
 !*.ipynb
+.ipynb_checkpoints
+!*.csv
