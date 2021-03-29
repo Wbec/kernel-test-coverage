@@ -128,9 +128,13 @@ def parse_include(lines):
     assert next(lines) == ["include", "#"], lines
     assert next(lines) == ["directive", "include"], lines
     start, *rest = next(lines)
-    assert start == "file" and len(rest) == 1, lines
-    return rest  # rest is the <included/file>
-
+    assert len(rest) == 1, (start, rest)
+    if start == "file":
+        return rest  # rest is the <included/file>
+    elif start == 'include':
+        # this is a strange case, may be due to macro interactions. It happens in at most 8 files.
+        return ['include|' + rest[0]]
+    assert False, f"Unrecognized include directive {[start] + rest}"
 
 def parse_define(lines):
     assert lines, "empty define not handled"
