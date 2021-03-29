@@ -194,17 +194,6 @@ def output_location(input_path):
     return output_path
 
 
-@contextmanager
-def cleanup(filepaths):
-    """Cleans up any files in `filepaths` if an exception occurs."""
-    try:
-        yield
-    except Exception as e:
-        for filepath in filepaths:
-            filepath.unlink(missing_ok=True)
-        raise e
-
-
 def parse_to_file(filename):
     parsed = list(parse_whole(filename))
     output_path = output_location(filename)
