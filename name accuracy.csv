@@ -1,0 +1,41 @@
+File,Function,Is it a test?,What does it do?,Notes
+drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c,amdgpu_vce_ring_test_ring,no,hardware status,
+drivers/block/paride/friq.c,friq_test_proto,yes,,
+tools/testing/selftests/bpf/prog_tests/btf.c,do_test_dedup,yes,,IS_ERRR/CHECK
+fs/btrfs/tests/inode-tests.c,test_btrfs_get_extent,yes,,IS_ERRR
+drivers/dma/dmatest.c,dmatest_match_device,no,filtering devices,
+tools/perf/tests/unit_number__scnprintf.c,test__unit_number__scnprint,yes,,TEST_FAIL/TEST_OK
+tools/testing/selftests/powerpc/alignment/alignment_handler.c,test_memcpy,yes/test machinery,,
+net/bluetooth/hci_sock.c,hci_test_bit,no,bit maniputaion,
+arch/arm/probes/kprobes/test-core.c,test_before_pre_handler,yes,,
+tools/testing/selftests/bpf/test_lru_map.c,do_test_lru_sanity5,yes,,Call from main
+tools/perf/tests/parse-events.c,test__checkevent_tracepoint_multi,yes,,TEST_ASSERT_VAL
+drivers/gpu/drm/selftests/test-drm_cmdline_parser.c,drm_cmdline_test_res_rblank,yes,,FAIL_ON
+drivers/gpu/drm/radeon/radeon_fence.c,radeon_test_signaled,no,check status bit,
+tools/testing/selftests/bpf/test_verifier.c,do_test_single,yes,,Call from main
+drivers/net/ethernet/intel/ice/ice_ethtool.c,ice_intr_test,no,"tests if device is working correctly, not code",
+lib/test_lockup.c,test_kernel_ptr,yes,,
+mm/debug_vm_pgtable.c,pmd_basic_tests,yes,,WARN_ON
+tools/testing/selftests/bpf/prog_tests/fexit_bpf2bpf.c,test_fexit_bpf2bpf_common,yes,,CHECK/IS_ERR_OR_NULL/test__start_subtest
+drivers/net/ethernet/sfc/falcon/falcon.c,falcon_test_nvram,no,,
+tools/testing/selftests/powerpc/math/vmx_syscall.c,test_vmx_syscall,yes,,test_harness (in main)
+drivers/net/ethernet/stmicro/stmmac/stmmac_selftests.c,stmmac_test_reg_sar,yes,,
+arch/powerpc/lib/feature-fixups.c,test_prefix_word_alt_patching,yes,,KERN_DEBUG
+drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c,gfx_v7_0_ring_test_ring,unsure,"possibly testing hardware, not code",
+crypto/testmgr.c,build_cipher_test_sglists,yes,,
+drivers/net/ethernet/intel/igc/igc_diag.c,igc_eeprom_test,unsure,,
+lib/test_min_heap.c,test_heap_pop_push,yes,,
+arch/powerpc/lib/code-patching.c,test_branch_iform,yes,,KERN_DEBUG
+mm/debug_vm_pgtable.c,pud_populate_tests,yes,,"WARN_ON, READ_ONCE"
+drivers/net/ethernet/stmicro/stmmac/stmmac_selftests.c,stmmac_test_phy_loopback,no,,
+drivers/misc/habanalabs/common/firmware_if.c,hl_fw_test_cpu_queue,yes,,dev_err
+tools/lib/traceevent/parse-filter.c,test_op,no,,
+drivers/mtd/mtdsuper.c,mtd_test_super,no,filesystem/memory handling (finding superblocks),
+drivers/misc/habanalabs/goya/goya.c,goya_test_queue,yes,,dev_err
+drivers/staging/comedi/drivers/ni_mio_common.c,test_route,no,route status,
+lib/test_kmod.c,misc_dev_to_test_dev,yes,,comment: run via selftests
+tools/testing/selftests/x86/ptrace_syscall.c,test_sys32_regs,yes,,Call from main
+mm/compaction.c,test_and_set_skip,no,check status bit,
+tools/testing/selftests/bpf/test_sock_addr.c,run_test_case,test machinery,,
+lib/kunit/kunit-test.c,kunit_resource_test_mark_order,test machinery,,
+lib/locking-selftest.c,ww_test_spin_context,yes,,"WARN_ON, do_test"
