@@ -7,3 +7,4 @@ kernels/
 !/*.py
 !failure_log.txt
 !linux-5.10.10/*.ipynb
+!*.ipynb
