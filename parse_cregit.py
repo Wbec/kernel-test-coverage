@@ -195,6 +195,9 @@ def output_location(input_path):
 
 
 def parse_to_file(filename):
+    items = parse_whole(filename)
+    list(zip(items, range(113)))
+    list(items)
     parsed = list(parse_whole(filename))
     output_path = output_location(filename)
 
