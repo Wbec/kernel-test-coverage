@@ -9,12 +9,7 @@ import traceback
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
-from locations import blame_parsed, blame_files
-
-
-def parse(filename, expression):
-    with open(filename) as f:
-        return [re.match(expression, line) for line in f]
+from locations import tokenized_kernel
 
 
 def strict_match(pattern, line, flags=0):
@@ -23,10 +18,10 @@ def strict_match(pattern, line, flags=0):
         return m
     raise ValueError(f"{pattern} did not match {line}")
 
-
+# todo remove regex, only the split is needed.
 def parse_blame_file(filename):
     expression = (
-        r"^(?P<hash>\w{40});" r"(?P<previous_file_name>[^\s;]*);" r"\t(?P<contents>.*)$"
+        r"^(?P<contents>.*)$"
     )
     with open(filename) as f:
         yield from (strict_match(expression, line)["contents"].split("|") for line in f)
@@ -136,6 +131,7 @@ def parse_include(lines):
         return ['include|' + rest[0]]
     assert False, f"Unrecognized include directive {[start] + rest}"
 
+
 def parse_define(lines):
     assert lines, "empty define not handled"
     macro_name = first_line = None
@@ -188,18 +184,15 @@ def lines_in_item(lines, item):
 # Output to csv
 
 
-def output_location(input_path):
-    output_path = blame_parsed / input_path.resolve().relative_to(blame_files)
+def output_location(output_dir, input_path):
+    output_path = output_dir / input_path.resolve().relative_to(tokenized_kernel)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     return output_path
 
 
-def parse_to_file(filename):
-    items = parse_whole(filename)
-    list(zip(items, range(113)))
-    list(items)
+def parse_to_file(filename, output_dir):
     parsed = list(parse_whole(filename))
-    output_path = output_location(filename)
+    output_path = output_location(output_dir, filename)
 
     suffixes = [
         "all_items",
@@ -246,42 +239,42 @@ def parse_to_file(filename):
             files[suffix].write(buffers[suffix].getvalue())
 
 
-def main(files):
+def parse(files, output_location):
+    files = (Path(f) for f in files)
+    output = Path(output_location)
+    files = itertools.chain.from_iterable(
+                f.rglob("*.c")
+                if f.is_dir()  # expand out directories to their contents
+                else [f]  # wrap single file in a list for chaining
+                for f in files
+            )
     failures = []
     for filename in files:
         try:
-            parse_to_file(filename)
+            parse_to_file(filename, output)
         except Exception as e:
             failures.append((filename, e))
             print(traceback.format_exc(), file=sys.stderr)
-    return failures
+    if failures:
+        print(f"{len(failures)} files failed to parse")
+        with open(output/"failure_log.txt", "w") as f:
+            f.writelines(
+                str(file) + ";" + str(message) + "\n" for file, message in failures
+            )
+
+
+def parse_all(output_location):
+    parse([tokenized_kernel], output_location)
 
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("output_location")
     arg_parser.add_argument("files", type=str, nargs="*")
     arg_parser.add_argument("--all", action="store_true")
     args = arg_parser.parse_args()
 
     if args.all:
-        files = [blame_files]
+        parse_all(args.output_location)
     else:
-        files = [Path(f) for f in args.files]
-    files = list(
-        *(
-            itertools.chain(
-                f.rglob("*.c.blame")
-                if f.is_dir()  # expand out directories to their contents
-                else [f]  # wrap single file in a list for chaining
-                for f in files
-            )
-        )
-    )
-
-    failures = main(files)
-    if failures:
-        print(f"{len(failures)} files failed to parse")
-        with open("failure_log.txt", "w") as f:
-            f.writelines(
-                str(file) + ";" + str(message) + "\n" for file, message in failures
-            )
+        parse(args.files, args.output_location)
