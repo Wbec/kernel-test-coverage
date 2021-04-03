@@ -3,32 +3,21 @@ import argparse
 import csv
 import io
 import itertools
-import re
 import sys
 import traceback
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack
 from pathlib import Path
 
 from locations import tokenized_kernel
 
 
-def strict_match(pattern, line, flags=0):
-    m = re.match(pattern, line, flags=flags)
-    if m:
-        return m
-    raise ValueError(f"{pattern} did not match {line}")
-
-# todo remove regex, only the split is needed.
-def parse_blame_file(filename):
-    expression = (
-        r"^(?P<contents>.*)$"
-    )
+def parse_lines(filename):
     with open(filename) as f:
-        yield from (strict_match(expression, line)["contents"].split("|") for line in f)
+        yield from (line.split("|") for line in f)
 
 
 def parse_whole(filename):
-    lines = parse_blame_file(filename)
+    lines = parse_lines(filename)
 
     for start, *rest in lines:
         if start in ("begin_unit", "end_unit", ""):
