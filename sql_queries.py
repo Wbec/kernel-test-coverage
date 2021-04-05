@@ -11,7 +11,7 @@ def make_paths_table(root, connection):
             if p == root:
                 # root of kernel is filtered out and replaced by an empty string,
                 # so that path substrings can be used
-                yield '', True, 0
+                yield "", True, 0
             else:
                 shortened_path = p.relative_to(root)
                 yield str(shortened_path), p.is_dir(), len(shortened_path.parts)
@@ -19,11 +19,13 @@ def make_paths_table(root, connection):
     cursor.executemany("INSERT INTO paths VALUES (?, ?, ?)", paths())
     connection.commit()
 
+
 def make_functions_view(connection):
     cursor = connection.cursor()
+    cursor.execute("DROP VIEW IF EXISTS functions;")
     cursor.execute(
         """
-        CREATE VIEW IF NOT EXISTS functions AS
+        CREATE VIEW functions AS
             WITH definitions AS (
                 SELECT *, COUNT(*) AS times_defined FROM cregit_functions
                 GROUP BY file, name
@@ -46,6 +48,36 @@ def make_functions_view(connection):
         ;"""
     )
     connection.commit()
+
+
+# The recursive queries for transitive dependencies are very slow, consider using a filter such as
+# "call_map.file LIKE some/partial/path/%"
+# to only look for calls from functions in a subset of the files.
+def transitive_dependencies(connection, direct_calls, filter="1=1"):
+    cursor = connection.cursor()
+    cursor.execute("DROP VIEW IF EXISTS call_map;")
+    cursor.execute(f"""
+    CREATE VIEW call_map AS 
+    WITH RECURSIVE
+        call_map AS ({direct_calls}),
+    dependencies(file, caller, callee, indicator) AS (
+    SELECT file, caller, callee, 'direct' FROM call_map WHERE {filter}
+    UNION
+    SELECT call_map.file, call_map.caller, dependencies.callee, 'transitive' AS callee
+    FROM call_map JOIN dependencies ON
+        call_map.callee = dependencies.caller AND {filter}
+    )
+    SELECT * FROM dependencies
+    ;""")
+    connection.commit()
+
+
+def transitive_calls(connection, **kwargs):
+    transitive_dependencies(connection, "SELECT * FROM cregit_calls", **kwargs)
+
+
+def transitive_identifiers(connection, **kwargs):
+    transitive_dependencies(connection, "SELECT file, function AS caller, identifier AS callee", **kwargs)
 
 
 def setup_sql(root, outdir):
