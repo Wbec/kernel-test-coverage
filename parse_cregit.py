@@ -115,9 +115,9 @@ def parse_include(lines):
     assert len(rest) == 1, (start, rest)
     if start == "file":
         return rest  # rest is the <included/file>
-    elif start == 'include':
+    elif start == "include":
         # this is a strange case, may be due to macro interactions. It happens in at most 8 files.
-        return ['include|' + rest[0]]
+        return ["include|" + rest[0]]
     assert False, f"Unrecognized include directive {[start] + rest}"
 
 
@@ -232,11 +232,11 @@ def parse(files, output_location):
     files = (Path(f) for f in files)
     output = Path(output_location)
     files = itertools.chain.from_iterable(
-                f.rglob("*.c")
-                if f.is_dir()  # expand out directories to their contents
-                else [f]  # wrap single file in a list for chaining
-                for f in files
-            )
+        f.rglob("*.c")
+        if f.is_dir()  # expand out directories to their contents
+        else [f]  # wrap single file in a list for chaining
+        for f in files
+    )
     failures = []
     for filename in files:
         try:
@@ -246,7 +246,7 @@ def parse(files, output_location):
             print(traceback.format_exc(), file=sys.stderr)
     if failures:
         print(f"{len(failures)} files failed to parse")
-        with open(output/"failure_log.txt", "w") as f:
+        with open(output / "failure_log.txt", "w") as f:
             f.writelines(
                 str(file) + ";" + str(message) + "\n" for file, message in failures
             )
