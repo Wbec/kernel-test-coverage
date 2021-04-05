@@ -13,4 +13,4 @@ blame_files = project_root / "blame"
 blame_parsed = OUTDIR / "blame_parsed"
 
 by_tag = OUTDIR / "by_tag"
-test_output = OUTDIR/ "test_output"
+test_output = OUTDIR / "test_output"

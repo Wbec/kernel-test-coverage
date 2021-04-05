@@ -17,4 +17,3 @@ def test_sample():
     files = random.sample(all_files, 500)
     for file in files:
         parse_cregit.parse_to_file(file, output_dir=test_output)
-
