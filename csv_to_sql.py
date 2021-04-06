@@ -28,16 +28,14 @@ def reset_table(table_name, suffix, column_names, connection, source_dir):
         (
             (corresponding_kernel_file(filename, source_dir), *row)
             # assumes no extra commas in file contents. Will error if this is not true.
-            for filename in source_dir.rglob(f"*.c.{suffix}")
+            for filename in source_dir.rglob(f"*.{suffix}")
             for row in read_csv(filename)
         ),
     )
     connection.commit()
 
 
-def reset_all(source_dir, outdir):
-    connection = sqlite3.connect(outdir / "function_survey.db")
-
+def reset_all(source_dir, connection):
     for table_name, suffix, column_names in (
         ("cregit_functions", "functions", ("file", "name")),
         ("cregit_calls", "calls", ("file", "caller", "callee")),
@@ -57,4 +55,5 @@ def reset_all(source_dir, outdir):
 
 
 if __name__ == "__main__":
-    reset_all(blame_parsed, OUTDIR)
+    connection = sqlite3.connect(OUTDIR / "function_survey.db")
+    reset_all(blame_parsed, connection)

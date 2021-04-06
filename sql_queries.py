@@ -80,6 +80,34 @@ def transitive_identifiers(connection, **kwargs):
     transitive_dependencies(connection, "SELECT file, function AS caller, identifier AS callee", **kwargs)
 
 
+def aggregate_coverage(connection, tests, targets, max_levels=2):
+    cursor = connection.cursor()
+    if max_levels is not None:
+        max_level_filter = f"AND paths.levels <= {max_levels}"
+    else:
+        max_level_filter = ''
+    return cursor.execute(f"""
+    WITH tests AS ({tests}), --tests(file, caller, callee) functions that are tests and what they call
+    targets AS ({targets}),  --targets(file, name) functions that should/could be tested
+    test_counts AS (
+        SELECT targets.file, targets.name, COUNT(caller) AS num_tests, caller AS example_test
+        FROM targets LEFT JOIN tests ON
+            targets.name = tests.callee
+        GROUP BY targets.file, targets.name
+    )
+    SELECT path, COUNT(*) AS num_functions,
+        SUM(CASE WHEN num_tests > 0 THEN 1 ELSE 0 END) AS num_tested
+    FROM test_counts JOIN paths
+    ON test_counts.file LIKE path || '%' {max_level_filter}
+    GROUP BY path
+    ORDER BY levels;""")
+
+
+TESTED_IDENTIFIERS = """SELECT file, function AS caller, identifier AS callee
+        FROM cregit_identifiers WHERE function LIKE '%test%' AND file LIKE '%test%'"""
+TESTED_CALLS = """SELECT * FROM cregit_calls WHERE caller LIKE '%test%' AND file LIKE '%test%'"""
+NON_STATIC = "SELECT * FROM functions WHERE is_static != 'static'"
+
 def setup_sql(root, outdir):
     connection = sqlite3.connect(outdir / "function_survey.db")
     make_paths_table(root, connection)

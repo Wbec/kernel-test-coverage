@@ -7,13 +7,14 @@ import sys
 import traceback
 from contextlib import ExitStack
 from pathlib import Path
+from string import whitespace
 
 from locations import tokenized_kernel
 
 
 def parse_lines(filename):
     with open(filename) as f:
-        yield from (line.split("|") for line in f)
+        yield from (line.rstrip("\n").split("|") for line in f)
 
 
 def parse_whole(filename):
@@ -55,10 +56,11 @@ def parse_function_decl(lines):
         elif start == "name":
             pass  # we may be able to weed out the function name, and get the types if that is useful
         elif start == "parameter_list":
-            if rest == ["("]:
+            assert len(rest) == 1, f"unexpected parameter list values {rest}"
+            if rest[0].rstrip("\\" + whitespace) == "(":
                 skip_function_parameters(lines)
             else:
-                assert rest == ["()"], f"unexpected paremeter list value {rest}"
+                assert rest == ["()"], f"unexpected parameter list value {rest}"
             break
         else:
             pass  # TODO: check what other declaration parts end up here
@@ -126,7 +128,11 @@ def parse_define(lines):
     macro_name = first_line = None
     for start, *rest in lines:
         if start == "DECL":
-            assert first_line is None, "multiple declarations in one macro"
+            if first_line is not None:
+                new_macro, duplicate_line = rest
+                assert (
+                    macro == new_macro and first_line == duplicate_line
+                ), f"different declarations in one macro {macro, first_line}, {new_macro, duplicate_line}"
             macro, first_line = rest
             assert macro == "macro", "Non macro declaration found in a macro"
         elif start == "name" and macro_name is None:
@@ -243,6 +249,7 @@ def parse(files, output_location):
             parse_to_file(filename, output)
         except Exception as e:
             failures.append((filename, e))
+            print(filename, file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)
     if failures:
         print(f"{len(failures)} files failed to parse")
