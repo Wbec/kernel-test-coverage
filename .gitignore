@@ -4,6 +4,7 @@ Forms/
 cregit/
 kernels/
 token/
+venv/
 !/.gitignore
 !/*.py
 !failure_log.txt
