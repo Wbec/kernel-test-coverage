@@ -1,6 +1,6 @@
 import subprocess
 import re
-import random
+import pandas as pd
 import sqlite3
 import io
 import csv
@@ -27,38 +27,60 @@ def tags():
     return sorted(result, key=lambda x: x[1:3])
 
 
-def main():
-    for tag, major, minor in tags():
-        print(f"starting {tag}")
-        outdir = locations.by_tag / tag
-        csv_path = outdir / "coverage_by_directory.csv"
-        database = outdir / "function_survey.db"
-        if csv_path.exists():
-            continue
-        if not database.exists():
-            print("making datbase")
-            subprocess.run(
-                f"git checkout -f {tag}",
-                cwd=locations.tokenized_kernel,
-                shell=True,
-                check=True,
-            )
+def csv_suffix(static=False, transitive=False, identifiers=True):
+    return f"{'s' if static else 'ns'}_{'t' if transitive else 'nt'}_{'i' if identifiers else 'ni'}"
 
-            outdir.mkdir(exist_ok=True)
-            parse_cregit.parse_all(outdir)
 
-            connection = sqlite3.connect(database)
-            csv_to_sql.reset_all(source_dir=outdir, connection=connection)
-            sql_queries.make_paths_table(
-                root=locations.tokenized_kernel, connection=connection
-            )
-            sql_queries.make_functions_view(connection)
+def make_csv_path(outdir, static=False, transitive=False, identifiers=True):
+    return outdir / f"coverage_by_directory_{csv_suffix(static, transitive, identifiers)}.csv"
+
+
+def process_tag(tag, static=False, transitive=False, identifiers=True):
+    """(Re)generates the parser output, sql database and csv summary data for `tag`, if it is missing.
+
+    This function does not check times that files were modified,
+    and treats the parser data as a subtask for making the sql database"""
+    print(f"starting {tag}")
+    outdir = locations.by_tag / tag
+    csv_path = make_csv_path(outdir, static, transitive, identifiers)
+    database = outdir / "function_survey.db"
+    if not database.exists():
+        print("making database")
+        subprocess.run(
+            f"git checkout -f {tag}",
+            cwd=locations.tokenized_kernel,
+            shell=True,
+            check=True,
+        )
+
+        outdir.mkdir(exist_ok=True)
+        parse_cregit.parse_all(outdir)
+
+        connection = sqlite3.connect(database)
+        csv_to_sql.reset_all(source_dir=outdir, connection=connection)
+        sql_queries.make_paths_table(
+            root=locations.tokenized_kernel, connection=connection
+        )
+        sql_queries.make_functions_view(connection)
+    else:
+        connection = sqlite3.connect(database)
+    if not csv_path.exists():
+        print("making csv")
+        if transitive:
+            tests_table = "SELECT * FROM call_map"
+            if identifiers:
+                sql_queries.transitive_identifiers(connection)
+            else:
+                sql_queries.transitive_calls(connection)
+        elif identifiers:
+            tests_table = sql_queries.TESTED_IDENTIFIERS
         else:
-            connection = sqlite3.connect(database)
+            tests_table = sql_queries.TESTED_CALLS
+
         result = sql_queries.aggregate_coverage(
             connection,
-            sql_queries.TESTED_IDENTIFIERS,
-            sql_queries.NON_STATIC,
+            tests_table,
+            sql_queries.ALL_FUNCTIONS if static else sql_queries.NON_STATIC,
             max_levels=None,
         )
 
@@ -70,5 +92,25 @@ def main():
             f.write(buffer.getvalue())
 
 
+def main(static=False, transitive=False, identifiers=True):
+    for tag, major, minor in tags():
+        process_tag(tag, static, transitive, identifiers)
+    dfs = []
+    for tag, major, minor in tags():
+        outdir = locations.by_tag / tag
+        with open(make_csv_path(outdir, static, transitive, identifiers)) as f:
+            temp_df = pd.read_csv(f,
+                                  names=["directory",
+                                         "functions" if static else "non_static",
+                                         "tested"]
+                                  ).fillna("")
+            temp_df["tag"] = tag
+            dfs.append(temp_df)
+
+    df = pd.concat(dfs, ignore_index=True)
+    df.to_csv(locations.OUTDIR / f"coverage_by_tag_{csv_suffix(static, transitive, identifiers)}.csv", index=False)
+
+
 if __name__ == "__main__":
-    main()
+    # warning transitive=True is VERY slow
+    main(static=True, transitive=True, identifiers=True)

@@ -4,7 +4,7 @@ project_root = Path(__file__).parent
 
 KERNEL = project_root / "kernels"
 tokenized_kernel = project_root / "token"
-OUTDIR = project_root / "output/"
+OUTDIR = project_root / "output"
 all_calls = OUTDIR / "cscope_all_calls.txt"
 kernel_tags = OUTDIR / "kernel_tags"
 test_targets = OUTDIR / "cscope_test_targets"

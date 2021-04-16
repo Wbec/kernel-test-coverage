@@ -59,13 +59,13 @@ def transitive_dependencies(connection, direct_calls, filter="1=1"):
     cursor.execute(f"""
     CREATE VIEW call_map AS 
     WITH RECURSIVE
-        call_map AS ({direct_calls}),
+        direct_calls AS ({direct_calls}),
     dependencies(file, caller, callee, indicator) AS (
-    SELECT file, caller, callee, 'direct' FROM call_map WHERE {filter}
+    SELECT file, caller, callee, 'direct' FROM direct_calls WHERE {filter}
     UNION
-    SELECT call_map.file, call_map.caller, dependencies.callee, 'transitive' AS callee
-    FROM call_map JOIN dependencies ON
-        call_map.callee = dependencies.caller AND {filter}
+    SELECT direct_calls.file, direct_calls.caller, dependencies.callee, 'transitive' AS callee
+    FROM direct_calls JOIN dependencies ON
+        direct_calls.callee = dependencies.caller AND {filter}
     )
     SELECT * FROM dependencies
     ;""")
@@ -77,7 +77,9 @@ def transitive_calls(connection, **kwargs):
 
 
 def transitive_identifiers(connection, **kwargs):
-    transitive_dependencies(connection, "SELECT file, function AS caller, identifier AS callee", **kwargs)
+    transitive_dependencies(connection,
+                            "SELECT file, function AS caller, identifier AS callee FROM cregit_identifiers",
+                            **kwargs)
 
 
 def aggregate_coverage(connection, tests, targets, max_levels=2):
@@ -98,7 +100,12 @@ def aggregate_coverage(connection, tests, targets, max_levels=2):
     SELECT path, COUNT(*) AS num_functions,
         SUM(CASE WHEN num_tests > 0 THEN 1 ELSE 0 END) AS num_tested
     FROM test_counts JOIN paths
-    ON test_counts.file LIKE path || '%' {max_level_filter}
+    ON (test_counts.file LIKE path || '/%'
+        OR test_counts.file = path
+        OR path = ''
+    ) {max_level_filter}
+        -- exact match for files, partial match for directories
+        -- slash added so that foo/bar does not match foo/barbaz
     GROUP BY path
     ORDER BY levels;""")
 
@@ -106,7 +113,9 @@ def aggregate_coverage(connection, tests, targets, max_levels=2):
 TESTED_IDENTIFIERS = """SELECT file, function AS caller, identifier AS callee
         FROM cregit_identifiers WHERE function LIKE '%test%' AND file LIKE '%test%'"""
 TESTED_CALLS = """SELECT * FROM cregit_calls WHERE caller LIKE '%test%' AND file LIKE '%test%'"""
+
 NON_STATIC = "SELECT * FROM functions WHERE is_static != 'static'"
+ALL_FUNCTIONS = "SELECT * FROM functions"
 
 def setup_sql(root, outdir):
     connection = sqlite3.connect(outdir / "function_survey.db")

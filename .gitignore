@@ -1,4 +1,3 @@
-*
 !*/
 Forms/
 cregit/
@@ -10,4 +9,3 @@ venv/
 !failure_log.txt
 !*.ipynb
 .ipynb_checkpoints
-!/*.csv
